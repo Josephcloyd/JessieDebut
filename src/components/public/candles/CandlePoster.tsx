@@ -31,7 +31,7 @@ export function CandlePoster({ lit, isAnimated }: CandlePosterProps) {
   const fade = isAnimated ? "transition-opacity duration-700 ease-out" : "";
 
   return (
-    <svg viewBox={`${minX} ${minY} ${width} ${height}`} className="size-full" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+    <svg viewBox={`${minX} ${minY} ${width} ${height}`} className="size-full overflow-visible" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
       <defs>
         <radialGradient id="poster-pool">
           <stop offset="0" stopColor="#E6C594" stopOpacity="0.5" />

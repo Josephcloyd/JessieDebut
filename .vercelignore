@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+gan-harness
+coverage
+playwright-report
+test-results
+tests

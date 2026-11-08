@@ -46,6 +46,21 @@ describe("anonymous visitors", () => {
     await expect(queryAs(db, "anon", "select guest_id from public.guest_messages")).rejects.toThrow(/permission denied/);
   });
 
+  it("can run the exact wish query the public site uses", async () => {
+    const rows = await queryAs<{ guest_name: string }>(
+      db,
+      "anon",
+      "select id, guest_name, message, is_featured, created_at from public.guest_messages order by is_featured desc, created_at desc limit 120",
+    );
+    expect(rows.map((row) => row.guest_name)).toEqual(["Approved"]);
+  });
+
+  it("cannot filter wishes by review status", async () => {
+    await expect(
+      queryAs(db, "anon", "select guest_name from public.guest_messages where status = 'pending'"),
+    ).rejects.toThrow(/permission denied/);
+  });
+
   it("cannot see photos from guest-only or hidden albums, or hidden photos", async () => {
     await db.exec(`
       insert into public.gallery_albums (id, name, visibility) values

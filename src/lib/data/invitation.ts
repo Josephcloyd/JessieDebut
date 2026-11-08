@@ -71,6 +71,15 @@ async function loadAlbums(client: SupabaseClient): Promise<GalleryAlbum[]> {
   return groupAlbums(albumRows, photoRows.map((row) => toGalleryPhoto(row)), owners);
 }
 
+/**
+ * Anonymous visitors may not read the status column, and RLS already limits them to
+ * approved wishes. Admins can see every wish, so the draft preview must filter explicitly.
+ */
+function selectVisibleWishes(client: SupabaseClient, state: EventSettings["state"]) {
+  const wishes = client.from("guest_messages").select(WISH_COLUMNS);
+  return state === "published" ? wishes : wishes.eq("status", "approved");
+}
+
 async function loadInvitation(client: SupabaseClient, state: EventSettings["state"]): Promise<InvitationData | null> {
   const [settings, controls, albums, participants, program, wishes] = await Promise.all([
     client.from("event_settings").select("*").eq("state", state).maybeSingle().throwOnError(),
@@ -78,10 +87,7 @@ async function loadInvitation(client: SupabaseClient, state: EventSettings["stat
     loadAlbums(client),
     client.from("debut_participants").select("*").eq("is_visible", true).order("sort_order").throwOnError(),
     client.from("event_program").select("*").eq("is_visible", true).order("sort_order").throwOnError(),
-    client
-      .from("guest_messages")
-      .select(WISH_COLUMNS)
-      .eq("status", "approved")
+    selectVisibleWishes(client, state)
       .order("is_featured", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(MAX_WISHES_SHOWN)
