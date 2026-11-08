@@ -23,6 +23,7 @@ const TEST_PNG = Buffer.from(
 async function openInvitation(page: Page, path: string): Promise<void> {
   await page.goto(path);
   await page.getByRole("button", { name: "Open Your Invitation" }).click();
+  await page.getByRole("button", { name: "Continue to the Invitation" }).click();
   await expect(page.getByText("You Are Cordially Invited")).toBeHidden({ timeout: 8000 });
 }
 
@@ -95,10 +96,18 @@ test.describe("administrator and guest journey", () => {
     const row = page.getByRole("listitem").filter({ hasText: GUEST_NAME });
     const code = (await row.getByText(/^Code /).innerText()).replace("Code ", "");
 
-    await openInvitation(guestPage, `/i/${code}`);
+    await guestPage.goto(`/i/${code}`);
+    await guestPage.getByRole("button", { name: "Open Your Invitation" }).click();
+    await guestPage.getByRole("button", { name: "I Decline" }).click();
+    await expect(guestPage.getByText(/Thank you for letting us know/)).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("listitem").filter({ hasText: GUEST_NAME })).toContainText("Declined");
+
+    await guestPage.getByRole("button", { name: "Continue to the Invitation" }).click();
+    await expect(guestPage.getByText("You Are Cordially Invited")).toBeHidden({ timeout: 8000 });
     await guestPage.locator("#rsvp").scrollIntoViewIfNeeded();
     await guestPage.getByText("Attending", { exact: true }).click();
-    await guestPage.getByRole("button", { name: "Send My RSVP" }).click();
+    await guestPage.getByRole("button", { name: /My RSVP$/ }).click();
     await expect(guestPage.getByText(/Thank you for being part of/)).toBeVisible();
 
     // 7. The RSVP appears in the dashboard.

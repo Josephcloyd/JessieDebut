@@ -144,8 +144,21 @@
 
   @media (min-width: 48rem) {
     .masthead {
-      font-size: min(calc(76vw / var(--letters)), 12vw);
+      font-size: min(calc(80vw / var(--letters)), 11vw);
     }
+  }
+
+  /* The window arch from the portrait, used to frame photographs. */
+  .arch {
+    border-radius: 50% 50% 0 0 / 34% 34% 0 0;
+  }
+
+  /* Upright figures for large dates and counts, where old-style numerals read as letters. */
+  .numerals {
+    font-family: var(--font-editorial);
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1;
+    letter-spacing: -0.02em;
   }
 
   .hairline-frame {

@@ -24,15 +24,27 @@ export function Sprig({ className }: OrnamentProps) {
 export function WaxSeal({ letters, className }: { letters: string; className?: string }) {
   return (
     <svg viewBox="0 0 100 100" className={className} role="img" aria-label="Wax seal">
+      <defs>
+        <radialGradient id="seal-wax" cx="38%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#f4e0bd" />
+          <stop offset="55%" stopColor="#e6c594" />
+          <stop offset="100%" stopColor="#c9a26c" />
+        </radialGradient>
+        <radialGradient id="seal-core" cx="42%" cy="36%" r="75%">
+          <stop offset="0%" stopColor="#efd7ae" />
+          <stop offset="100%" stopColor="#dcb67f" />
+        </radialGradient>
+      </defs>
       <path
         d="M50 4c8 0 11 5 18 8s13 1 18 7 2 12 5 19 8 10 7 18-7 10-10 17-1 13-8 17-12 0-20 3-11 7-19 5-9-8-16-11-14-2-18-9 0-12-3-19-8-11-6-19 8-9 11-16 1-13 8-17 12 1 19-1 11-2 14-2Z"
-        fill="#e6c594"
+        fill="url(#seal-wax)"
       />
-      <circle cx="50" cy="50" r="31" fill="#f0d9b5" stroke="#c58b95" strokeWidth="1.2" />
-      <circle cx="50" cy="50" r="26" fill="none" stroke="#c58b95" strokeWidth="0.7" />
+      <circle cx="50" cy="50" r="31" fill="url(#seal-core)" stroke="#c9a26c" strokeWidth="1.1" />
+      <circle cx="50" cy="50" r="26" fill="none" stroke="#fff3df" strokeOpacity="0.8" strokeWidth="0.8" />
       <text x="50" y="50" dominantBaseline="central" textAnchor="middle" fontFamily="var(--font-cormorant), serif" fontSize="34" fill="#4d2c32">
         {letters}
       </text>
+      <path d="M24 34C30 22 42 15 56 15" fill="none" stroke="#fff9f4" strokeOpacity="0.65" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

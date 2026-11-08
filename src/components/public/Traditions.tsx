@@ -2,35 +2,30 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Participant, TraditionKey, TraditionsConfig } from "@/lib/types";
 import { CANDLE_COUNT } from "./candles/candle-layout";
-import { CandleStage } from "./candles/CandleStage";
-import { useLitCount } from "./candles/useLitCount";
-import { usePrefersStill } from "./candles/usePrefersStill";
-import { SectionHeading } from "./SectionHeading";
+import { CandleCeremony } from "./candles/CandleCeremony";
 
 const ORDER: TraditionKey[] = ["roses", "candles", "treasures", "blue_bills", "wishes"];
-const FULL_LIST = CANDLE_COUNT;
 
-function CreditRow({ number, person, isLit, isNewest }: { number: number; person?: Participant; isLit: boolean; isNewest: boolean }) {
+/** One line of the dance card. A place not yet filled is simply a blank ruled line. */
+function CardLine({ number, person }: { number: number; person?: Participant }) {
   return (
-    <li className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 border-t border-[#FFF9F4]/20 py-3 md:grid-cols-[6rem_1fr_auto] md:py-4">
-      <span className={`font-display text-4xl font-light leading-none tabular-nums transition-[color,text-shadow] duration-700 md:text-6xl ${isLit ? "text-[#E6C594]" : person ? "text-[#FFD2D7]" : "text-[#FFF9F4]/25"}`} style={isNewest ? { textShadow: "0 0 22px rgb(230 197 148 / 0.75)" } : undefined}>{String(number).padStart(2, "0")}</span>
-      <div className="min-w-0">
-        {person ? (
-          <>
-            <p className="font-display text-2xl leading-tight md:text-4xl">{person.name}</p>
-            {person.relationship && <p className="eyebrow mt-1 text-[0.58rem] text-[#FFD2D7]">{person.relationship}</p>}
-            {person.message && <p className="mt-1 font-display text-lg italic leading-snug text-[#FFD2D7]">{person.message}</p>}
-          </>
-        ) : (
-          <p className="font-display text-2xl text-[#FFF9F4]/55">To be announced</p>
-        )}
-      </div>
+    <li className="flex break-inside-avoid items-start gap-3 border-b border-umber/15 py-2.5">
+      <span className="numerals w-7 shrink-0 pt-1 text-right text-sm text-soft-ink">{number}</span>
+      {person ? (
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-2xl leading-tight">{person.name}</p>
+          {person.relationship && <p className="text-sm text-soft-ink">{person.relationship}</p>}
+          {person.message && <p className="mt-0.5 font-display text-lg italic leading-snug text-soft-ink">{person.message}</p>}
+        </div>
+      ) : (
+        <span className="min-h-7 flex-1"><span className="sr-only">To be announced</span></span>
+      )}
       {person?.photo_url && (
-        <div className="relative size-14 overflow-hidden md:size-20">
-          <Image src={person.photo_url} alt={person.name} fill sizes="80px" className="object-cover" />
+        <div className="relative size-11 shrink-0 overflow-hidden rounded-full">
+          <Image src={person.photo_url} alt={person.name} fill sizes="44px" className="object-cover" />
         </div>
       )}
     </li>
@@ -40,52 +35,53 @@ function CreditRow({ number, person, isLit, isNewest }: { number: number; person
 interface TraditionsProps {
   config: TraditionsConfig;
   participants: Participant[];
-  folio: string;
 }
 
-export function Traditions({ config, participants, folio }: TraditionsProps) {
-  const enabled = ORDER.filter((key) => config[key]?.enabled);
-  const [active, setActive] = useState<TraditionKey | undefined>(enabled[0]);
-  const prefersReducedMotion = usePrefersStill();
-  const stageRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const scrolled = useLitCount(listRef, stageRef, !prefersReducedMotion);
-  const lit = prefersReducedMotion ? CANDLE_COUNT : scrolled;
-  if (enabled.length === 0) return null;
-
-  const current = active && enabled.includes(active) ? active : enabled[0];
+/** After the candles, the printed dance card: every tradition has its own numbered page. */
+function DanceCard({ config, participants, enabled }: TraditionsProps & { enabled: TraditionKey[] }) {
+  const [active, setActive] = useState<TraditionKey>(enabled[0]);
+  const current = enabled.includes(active) ? active : enabled[0];
   const people = participants.filter((person) => person.tradition === current);
-  const rows = Array.from({ length: Math.max(FULL_LIST, people.length) }, (_, index) => people[index]);
+  const rows = Array.from({ length: Math.max(CANDLE_COUNT, people.length) }, (_, index) => people[index]);
 
   return (
-    <section id="traditions" className="relative bg-[#4D2C32] px-5 py-20 text-[#FFF9F4] md:py-28">
-      <div className="pointer-events-none absolute inset-0 transition-opacity duration-1000" style={{ opacity: lit / CANDLE_COUNT, background: "radial-gradient(ellipse 70% 55% at 28% 48%, rgb(230 197 148 / 0.24), transparent 70%)" }} aria-hidden="true" />
-      <SectionHeading folio={folio} title="The Eighteen" />
-      <div className="relative mx-auto max-w-6xl">
-        <div className="no-scrollbar mb-8 flex gap-6 overflow-x-auto" role="tablist" aria-label="Debut traditions">
-          {enabled.map((key) => (
-            <button key={key} type="button" role="tab" aria-selected={key === current} onClick={() => setActive(key)} className={`min-h-11 shrink-0 font-display text-2xl italic transition-colors md:text-3xl ${key === current ? "text-[#FFF9F4] underline decoration-[#E6C594] decoration-1 underline-offset-8" : "text-[#FFF9F4]/55 hover:text-[#FFF9F4]"}`}>
-              {config[key].title}
-            </button>
-          ))}
-        </div>
-        <div className="lg:grid lg:grid-cols-[6fr_6fr] lg:gap-10">
-          <div ref={stageRef} className="sticky top-0 z-10 -mx-5 mb-6 h-[42svh] bg-[#4D2C32] lg:top-6 lg:mx-0 lg:mb-0 lg:h-[min(66svh,600px)] lg:self-start lg:bg-transparent">
-            <CandleStage lit={lit} isStill={prefersReducedMotion} className="size-full" />
-            <div className="pointer-events-none absolute inset-x-0 top-full h-10 bg-gradient-to-b from-[#4D2C32] to-transparent lg:hidden" aria-hidden="true" />
-          </div>
-          <div ref={listRef}>
-        <AnimatePresence mode="wait">
-          <motion.div key={current} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-            {config[current].intro && <p className="mb-8 max-w-xl font-display text-xl italic leading-snug text-[#FFD2D7]">{config[current].intro}</p>}
-            <ol className="grid">
-              {rows.map((person, index) => <CreditRow key={person?.id ?? `open-${index}`} number={index + 1} person={person} isLit={index < lit} isNewest={index === lit - 1 && !prefersReducedMotion} />)}
-            </ol>
-          </motion.div>
-        </AnimatePresence>
-          </div>
+    <div className="relative mx-auto max-w-4xl px-5 pb-24 pt-14 md:pb-32">
+      <div className="flex flex-wrap justify-center gap-x-1 gap-y-1" role="tablist" aria-label="Debut traditions">
+        {enabled.map((key) => (
+          <button key={key} id={`tradition-${key}`} type="button" role="tab" aria-selected={key === current} aria-controls="tradition-card" onClick={() => setActive(key)} className={`min-h-11 px-4 pb-2 pt-2.5 font-display text-xl italic transition-colors md:text-2xl ${key === current ? "bg-ivory text-umber" : "text-beige hover:text-gold"}`}>
+            {config[key].title}
+          </button>
+        ))}
+      </div>
+      <div id="tradition-card" role="tabpanel" aria-labelledby={`tradition-${current}`} className="bg-ivory p-2 text-umber shadow-soft md:p-3">
+        <div className="border border-gold px-5 py-9 md:px-12 md:py-12">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={current} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+              <h3 className="text-center font-script text-6xl leading-none md:text-7xl">{config[current].title}</h3>
+              {config[current].intro && <p className="mx-auto mt-3 max-w-md text-center font-display text-xl italic leading-snug text-soft-ink">{config[current].intro}</p>}
+              <ol className="mt-8 md:columns-2 md:gap-12">
+                {rows.map((person, index) => <CardLine key={person?.id ?? `open-${index}`} number={index + 1} person={person} />)}
+              </ol>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
-    </section>
+    </div>
+  );
+}
+
+export function Traditions({ config, participants }: TraditionsProps) {
+  const enabled = ORDER.filter((key) => config[key]?.enabled);
+  if (enabled.length === 0) return null;
+  const candles = config.candles?.enabled ? config.candles : undefined;
+
+  return (
+    <>
+      <div className="h-[26svh] bg-gradient-to-b from-transparent to-umber md:h-[32svh]" aria-hidden="true" />
+      <section id="traditions" className="bg-umber text-ivory">
+        <CandleCeremony intro={candles?.intro} people={candles ? participants.filter((person) => person.tradition === "candles") : []} />
+        <DanceCard config={config} participants={participants} enabled={enabled} />
+      </section>
+    </>
   );
 }

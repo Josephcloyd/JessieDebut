@@ -5,15 +5,36 @@ test("guest opens the envelope and reaches the invitation", async ({ page }) => 
   await expect(page.getByText("You Are Cordially Invited")).toBeVisible();
 
   await page.getByRole("button", { name: "Open Your Invitation" }).click();
+  await page.getByRole("button", { name: "Continue to the Invitation" }).click();
 
   await expect(page.getByText("You Are Cordially Invited")).toBeHidden({ timeout: 8000 });
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByRole("timer").first()).toBeVisible();
 });
 
+test("a personal letter appears after the envelope opens", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Your Invitation" }).click();
+
+  await expect(page.getByText("Dear Honored Guest,")).toBeVisible({ timeout: 8000 });
+  await expect(page.getByText("With love,")).toBeVisible();
+  await expect(page.getByRole("status", { name: /invitation/i })).toHaveCount(0);
+});
+
+test("the letter asks for an invitation code when the guest is not known", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Your Invitation" }).click();
+
+  await page.getByRole("button", { name: "I Accept" }).click();
+  await expect(page.getByLabel("Invitation Code").first()).toBeVisible();
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page.getByRole("button", { name: "I Decline" })).toBeVisible();
+});
+
 test("her name writes itself between the envelope and the cover", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open Your Invitation" }).click();
+  await page.getByRole("button", { name: "Continue to the Invitation" }).click();
 
   const nameScreen = page.getByRole("status", { name: /invitation/i });
   await expect(nameScreen).toBeVisible({ timeout: 8000 });
@@ -26,6 +47,7 @@ test("the cover appears only after the envelope is opened", async ({ page }) => 
   await expect(masthead).toHaveCSS("opacity", "0");
 
   await page.getByRole("button", { name: "Open Your Invitation" }).click();
+  await page.getByRole("button", { name: "Continue to the Invitation" }).click();
   await expect(page.getByText("You Are Cordially Invited")).toBeHidden({ timeout: 8000 });
 
   await expect(masthead).toHaveCSS("opacity", "1", { timeout: 6000 });
@@ -36,6 +58,7 @@ test("visitors who prefer reduced motion can still open the invitation", async (
   const page = await context.newPage();
   await page.goto("/");
   await page.getByRole("button", { name: "Open Your Invitation" }).click();
+  await page.getByRole("button", { name: "Continue to the Invitation" }).click();
   await expect(page.getByText("You Are Cordially Invited")).toBeHidden({ timeout: 8000 });
 
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

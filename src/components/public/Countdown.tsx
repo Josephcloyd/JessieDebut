@@ -12,56 +12,54 @@ function subscribeToSeconds(onTick: () => void): () => void {
 const currentSecond = () => Math.floor(Date.now() / 1000);
 const noSecondOnServer = () => null;
 
-const UNITS = ["days", "hours", "minutes", "seconds"] as const;
+const TIME_UNITS = ["hours", "minutes", "seconds"] as const;
+
+function Ticking({ value, className }: { value: string; className: string }) {
+  return (
+    <div className={`relative overflow-hidden ${className}`}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span key={value} className="block" initial={{ opacity: 0, y: "35%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "-35%" }} transition={{ duration: 0.45 }}>
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 interface CountdownProps {
   target: string;
   celebrantName: string;
-  tone?: "dark" | "light" | "responsive";
-  size?: "compact" | "large";
+  label: string;
 }
 
-const TONE_CLASS = { dark: "text-umber", light: "text-ivory", responsive: "text-ivory md:text-umber" };
-
-export function Countdown({ target, celebrantName, tone = "dark", size = "large" }: CountdownProps) {
+/** One enormous figure for the days, with the smaller units running beside it. */
+export function Countdown({ target, celebrantName, label }: CountdownProps) {
   const second = useSyncExternalStore(subscribeToSeconds, currentSecond, noSecondOnServer);
-  const toneClass = TONE_CLASS[tone];
+  const values = second === null ? null : getCountdown(target, second * 1000);
 
-  if (second !== null) {
-    const preview = getCountdown(target, second * 1000);
-    if (preview.isPast) {
-      return (
-        <p className={`font-script text-4xl md:text-5xl ${toneClass}`}>
-          The celebration of {celebrantName} has begun
-        </p>
-      );
-    }
+  if (values?.isPast) {
+    return <p className="font-script text-5xl leading-tight md:text-7xl">The celebration of {celebrantName} has begun</p>;
   }
 
-  const values = second === null ? null : getCountdown(target, second * 1000);
-  const numberSize = size === "large" ? "text-5xl md:text-7xl" : "text-3xl md:text-4xl";
+  const show = (unit: "days" | (typeof TIME_UNITS)[number]) => (values ? String(values[unit]).padStart(2, "0") : "--");
 
   return (
-    <div className={`flex justify-center gap-5 md:gap-10 ${toneClass}`} role="timer" aria-label="Time remaining until the debut">
-      {UNITS.map((unit) => (
-        <div key={unit} className="min-w-12 text-center md:min-w-16">
-          <div className={`relative overflow-hidden font-display leading-none tabular-nums ${numberSize}`}>
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span
-                key={values?.[unit] ?? "pending"}
-                className="block"
-                initial={{ opacity: 0, y: "35%" }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: "-35%" }}
-                transition={{ duration: 0.45 }}
-              >
-                {values ? String(values[unit]).padStart(2, "0") : "--"}
-              </motion.span>
-            </AnimatePresence>
+    <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-end md:gap-16" role="timer" aria-label="Time remaining until the debut">
+      <div>
+        <p className="font-display text-3xl italic leading-none text-beige md:text-4xl">{label}</p>
+        <Ticking value={show("days")} className="numerals mt-3 text-[clamp(7.5rem,36vw,22rem)] leading-[0.92] text-gold" />
+        <p className="font-display text-2xl italic leading-none md:text-3xl">days</p>
+      </div>
+      <dl className="grid grid-cols-3 gap-5 border-t border-gold/30 pt-5 md:grid-cols-1 md:gap-0 md:border-t-0 md:pt-0">
+        {TIME_UNITS.map((unit) => (
+          <div key={unit} className="md:flex md:w-64 md:items-baseline md:justify-between md:border-t md:border-gold/30 md:py-3">
+            <dt className="order-2 font-display text-lg italic text-beige md:text-xl">{unit}</dt>
+            <dd className="order-1 mt-1 md:mt-0">
+              <Ticking value={show(unit)} className="numerals text-4xl leading-none md:text-5xl" />
+            </dd>
           </div>
-          <p className="eyebrow mt-2 text-[0.58rem] opacity-80">{unit}</p>
-        </div>
-      ))}
+        ))}
+      </dl>
     </div>
   );
 }

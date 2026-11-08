@@ -1,6 +1,7 @@
 import {
   ACESFilmicToneMapping,
   AdditiveBlending,
+  CanvasTexture,
   CircleGeometry,
   Color,
   CylinderGeometry,
@@ -16,12 +17,12 @@ import {
   Sprite,
   SpriteMaterial,
   SRGBColorSpace,
+  TorusGeometry,
   Vector3,
   WebGLRenderer,
-  CanvasTexture,
   type Texture,
 } from "three";
-import { CANDLE_COUNT, candleRows, layoutCandles, type CandleSpot } from "./candle-layout";
+import { CANDLE_COUNT, layoutCandles, TRAY_RADIUS, VIEW_ELEVATION, type CandleSpot } from "./candle-layout";
 import { createFlameTexture, createGlowTexture, createWaxGlowTexture } from "./textures";
 
 export interface CandleScene {
@@ -32,18 +33,27 @@ export interface CandleScene {
 }
 
 const MAX_PIXEL_RATIO = 1.5;
+const LOW_PIXEL_RATIO = 1;
 const FRAME_INTERVAL = 1 / 40;
-const RADIUS = 0.17;
+const SLOW_FRAME_SECONDS = 0.05;
+const FRAMES_PER_CHECK = 40;
+const RADIUS = 0.15;
 const WAX = new Color("#FFF9F4");
-const WAX_CAP = new Color("#eadbd2");
+const WAX_CAP = new Color("#f1e6dd");
 const CAP_LIT = new Color("#F3DDB4");
 const EMBER = new Color("#E6C594");
 const FOV = 28;
-const POOL_RADIUS = 1.5;
+const POOL_RADIUS = 1.35;
+const FIT_X = 0.9;
+const FIT_Y = 0.52;
+const SCENE_LIFT = 0.07;
+const EMBER_SECONDS = 0.45;
+const EMBER_ARC = 0.7;
 
 interface Candle {
   body: Mesh;
   cap: Mesh;
+  wick: Mesh;
   flame: Sprite;
   glow: Sprite;
   material: MeshStandardMaterial;
@@ -63,7 +73,8 @@ function flicker(time: number, seed: number): number {
 
 export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
   const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: "low-power" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+  let pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+  renderer.setPixelRatio(pixelRatio);
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
@@ -71,30 +82,44 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
 
   const scene = new Scene();
   const camera = new PerspectiveCamera(FOV, 1, 0.1, 80);
-  const hemi = new HemisphereLight(new Color("#C58B95"), new Color("#2a1519"), 0.55);
+  const hemi = new HemisphereLight(new Color("#FFD2D7"), new Color("#4D2C32"), 1.25);
   const keyLight = new PointLight(EMBER, 0, 14, 1.6);
-  const flareLight = new PointLight(new Color("#E6C594"), 0, 6, 1.8);
+  const flareLight = new PointLight(EMBER, 0, 6, 1.8);
   scene.add(hemi, keyLight, flareLight);
 
   const flameTexture = createFlameTexture();
   const glowTexture = createGlowTexture();
   const waxGlow = createWaxGlowTexture();
-  const bodyGeometry = new CylinderGeometry(RADIUS, RADIUS * 1.06, 1, 22, 1, true);
-  const capGeometry = new CircleGeometry(RADIUS, 22);
+  const bodyGeometry = new CylinderGeometry(RADIUS, RADIUS * 1.06, 1, 20, 1, true);
+  const capGeometry = new CircleGeometry(RADIUS, 20);
   capGeometry.rotateX(-Math.PI / 2);
+  const wickGeometry = new CylinderGeometry(0.012, 0.016, 0.13, 6);
+  const wickMaterial = new MeshBasicMaterial({ color: new Color("#3b2226") });
   const planeGeometry = new PlaneGeometry(1, 1);
 
   const candles: Candle[] = Array.from({ length: CANDLE_COUNT }, (_, index) => {
-    const material = new MeshStandardMaterial({ color: WAX, roughness: 0.58, metalness: 0, emissive: EMBER, emissiveMap: waxGlow, emissiveIntensity: 0, side: DoubleSide });
+    const material = new MeshStandardMaterial({ color: WAX, roughness: 0.55, metalness: 0, emissive: EMBER, emissiveMap: waxGlow, emissiveIntensity: 0, side: DoubleSide });
     const capMaterial = new MeshBasicMaterial({ color: WAX_CAP.clone() });
     const body = new Mesh(bodyGeometry, material);
     const cap = new Mesh(capGeometry, capMaterial);
+    const wick = new Mesh(wickGeometry, wickMaterial);
     const flame = new Sprite(new SpriteMaterial({ map: flameTexture, transparent: true, depthWrite: false, blending: AdditiveBlending, opacity: 0 }));
     flame.center.set(0.5, 0.12);
     const glow = new Sprite(new SpriteMaterial({ map: glowTexture, transparent: true, depthWrite: false, blending: AdditiveBlending, opacity: 0 }));
-    scene.add(body, cap, flame, glow);
-    return { body, cap, flame, glow, material, capMaterial, spot: { x: 0, z: 0, height: 1 }, amount: 0, target: 0, flare: 0, seed: index * 1.7 + 0.3 };
+    scene.add(body, cap, wick, flame, glow);
+    return { body, cap, wick, flame, glow, material, capMaterial, spot: { x: 0, z: 0, height: 1 }, amount: 0, target: 0, flare: 0, seed: index * 1.7 + 0.3 };
   });
+
+  const trayGeometry = new CylinderGeometry(TRAY_RADIUS, TRAY_RADIUS * 1.02, 0.08, 72);
+  const rimGeometry = new TorusGeometry(TRAY_RADIUS, 0.045, 10, 96);
+  rimGeometry.rotateX(Math.PI / 2);
+  const trayMaterial = new MeshStandardMaterial({ color: new Color("#5a333a"), roughness: 0.42, metalness: 0.15 });
+  const rimMaterial = new MeshStandardMaterial({ color: EMBER, roughness: 0.4, metalness: 0.35, emissive: EMBER, emissiveIntensity: 0.12 });
+  const tray = new Mesh(trayGeometry, trayMaterial);
+  tray.position.y = -0.04;
+  const rim = new Mesh(rimGeometry, rimMaterial);
+  rim.position.y = 0.01;
+  scene.add(tray, rim);
 
   const poolCanvas = document.createElement("canvas");
   const shadowCanvas = document.createElement("canvas");
@@ -111,6 +136,12 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
   pool.position.y = 0.004;
   scene.add(shadows, pool);
 
+  // The little light carried from one candle to the next.
+  const emberSprite = new Sprite(new SpriteMaterial({ map: glowTexture, transparent: true, depthWrite: false, blending: AdditiveBlending, opacity: 0.95 }));
+  emberSprite.scale.setScalar(0.34);
+  emberSprite.visible = false;
+  scene.add(emberSprite);
+
   let width = 1;
   let height = 1;
   let planeWidth = 10;
@@ -126,6 +157,11 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
   let lastFrame = 0;
   let clock = 0;
   let needsPool = true;
+  let slowFrames = 0;
+  let checkedFrames = 0;
+  const emberFrom = new Vector3();
+  const emberTo = new Vector3();
+  let emberProgress = 1;
 
   const disposables: Texture[] = [flameTexture, glowTexture, waxGlow, poolTexture, shadowTexture];
 
@@ -170,22 +206,11 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
   }
 
   function fitCamera(): void {
-    const elevation = 0.27;
-    const spots = candles.map((candle) => candle.spot);
-    const min = new Vector3(Infinity, 0, Infinity);
-    const max = new Vector3(-Infinity, 0, -Infinity);
-    for (const spot of spots) {
-      min.x = Math.min(min.x, spot.x);
-      max.x = Math.max(max.x, spot.x);
-      min.z = Math.min(min.z, spot.z);
-      max.z = Math.max(max.z, spot.z);
-    }
-    lookAt = new Vector3((min.x + max.x) / 2, 0.95, (min.z + max.z) / 2);
-    const direction = new Vector3(0, Math.sin(elevation), Math.cos(elevation));
-    const points: Vector3[] = [];
-    for (const spot of spots) {
-      points.push(new Vector3(spot.x - 0.5, 0, spot.z + 0.3), new Vector3(spot.x + 0.5, spot.height + 0.75, spot.z - 0.2));
-    }
+    lookAt = new Vector3(0, 0.75, 0);
+    const direction = new Vector3(0, Math.sin(VIEW_ELEVATION), Math.cos(VIEW_ELEVATION));
+    const points = candles.flatMap(({ spot }) => [new Vector3(spot.x, 0, spot.z), new Vector3(spot.x, spot.height + 0.5, spot.z)]);
+    const edge = TRAY_RADIUS + 0.1;
+    points.push(new Vector3(-edge, 0, 0), new Vector3(edge, 0, 0), new Vector3(0, 0, edge));
     let near = 4;
     let far = 60;
     for (let step = 0; step < 24; step += 1) {
@@ -196,50 +221,60 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
       camera.updateProjectionMatrix();
       const fits = points.every((point) => {
         const projected = point.clone().project(camera);
-        return Math.abs(projected.x) < 0.74 && projected.y > -0.66 && projected.y < 0.66;
+        return Math.abs(projected.x) < FIT_X && Math.abs(projected.y) < FIT_Y;
       });
       if (fits) far = mid;
       else near = mid;
     }
     fitDistance = far;
-    planeWidth = Math.max(14, (max.x - min.x) + 13);
-    planeDepth = Math.max(8, (max.z - min.z) + 11);
-    for (const plane of [pool, shadows]) {
-      plane.scale.set(planeWidth, planeDepth, 1);
-      plane.position.x = 0;
-      plane.position.z = 0;
-    }
+    planeWidth = TRAY_RADIUS * 2 + 3;
+    planeDepth = TRAY_RADIUS * 2 + 3;
+    for (const plane of [pool, shadows]) plane.scale.set(planeWidth, planeDepth, 1);
   }
 
   function applyLayout(): void {
-    const rows = candleRows(width / height);
-    const spots = layoutCandles(CANDLE_COUNT, rows);
+    const spots = layoutCandles();
     candles.forEach((candle, index) => {
       const spot = spots[index];
       candle.spot = spot;
       candle.body.scale.set(1, spot.height, 1);
       candle.body.position.set(spot.x, spot.height / 2, spot.z);
       candle.cap.position.set(spot.x, spot.height, spot.z);
-      candle.flame.position.set(spot.x, spot.height + 0.03, spot.z);
-      candle.glow.position.set(spot.x, spot.height + 0.22, spot.z);
+      candle.wick.position.set(spot.x, spot.height + 0.065, spot.z);
+      candle.flame.position.set(spot.x, spot.height + 0.1, spot.z);
+      candle.glow.position.set(spot.x, spot.height + 0.28, spot.z);
     });
     camera.aspect = width / height;
+    camera.clearViewOffset();
     fitCamera();
-    const poolPixels = Math.min(512, Math.round(width * 0.9));
+    // Lifts the tray so the count below it never sits on the rim.
+    camera.setViewOffset(width, height, 0, Math.round(height * SCENE_LIFT), width, height);
+    const poolPixels = Math.max(128, Math.min(512, Math.round(width * 0.9)));
     for (const target of [poolCanvas, shadowCanvas]) {
-      target.width = Math.max(128, poolPixels);
-      target.height = Math.max(96, Math.round((Math.max(128, poolPixels) * planeDepth) / planeWidth));
+      target.width = poolPixels;
+      target.height = poolPixels;
     }
     drawShadows();
     needsPool = true;
   }
 
+  function moveEmber(dt: number): boolean {
+    if (emberProgress >= 1) {
+      emberSprite.visible = false;
+      return false;
+    }
+    emberProgress = Math.min(1, emberProgress + dt / EMBER_SECONDS);
+    emberSprite.position.lerpVectors(emberFrom, emberTo, emberProgress);
+    emberSprite.position.y += Math.sin(emberProgress * Math.PI) * EMBER_ARC;
+    emberSprite.visible = true;
+    return true;
+  }
+
   function step(dt: number): boolean {
-    let isMoving = false;
+    let isMoving = moveEmber(dt);
     let lit = 0;
     let sumX = 0;
     let sumZ = 0;
-    let topY = 1;
     for (const candle of candles) {
       const rate = candle.target > candle.amount ? 3.4 : 5;
       const next = candle.amount + Math.sign(candle.target - candle.amount) * rate * dt;
@@ -253,7 +288,6 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
         lit += amount;
         sumX += candle.spot.x * amount;
         sumZ += candle.spot.z * amount;
-        topY = Math.max(topY, candle.spot.height);
       }
     }
     const peakStep = (peakTarget - peak) * Math.min(1, dt * 1.6);
@@ -261,8 +295,9 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
     peak += peakStep;
     const cx = lit > 0 ? sumX / lit : lookAt.x;
     const cz = lit > 0 ? sumZ / lit : lookAt.z;
-    keyLight.position.set(cx, topY + 1.3, cz + 1.4);
+    keyLight.position.set(cx, 2.6, cz + 1.4);
     keyLight.intensity = lit * (1.05 + peak * 0.8);
+    rimMaterial.emissiveIntensity = 0.12 + (lit / CANDLE_COUNT) * 0.55 + peak * 0.25;
     const fresh = candles[Math.max(0, newest)];
     flareLight.position.set(fresh.spot.x, fresh.spot.height + 0.4, fresh.spot.z + 0.7);
     flareLight.intensity = newest >= 0 ? fresh.flare * 10 : 0;
@@ -292,11 +327,26 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
   function render(): void {
     const distance = fitDistance * (1 - 0.05 * peak);
     const sway = Math.sin(clock * 0.25) * 0.08;
-    const direction = new Vector3(sway, Math.sin(0.27), Math.cos(0.27)).normalize();
+    const direction = new Vector3(sway, Math.sin(VIEW_ELEVATION), Math.cos(VIEW_ELEVATION)).normalize();
     camera.position.copy(lookAt).addScaledVector(direction, distance);
     camera.lookAt(lookAt);
     dress(clock);
     renderer.render(scene, camera);
+  }
+
+  /** Slow phones trade sharpness for a steady flicker. */
+  function watchFrameRate(dt: number): void {
+    if (pixelRatio <= LOW_PIXEL_RATIO) return;
+    checkedFrames += 1;
+    if (dt > SLOW_FRAME_SECONDS) slowFrames += 1;
+    if (checkedFrames < FRAMES_PER_CHECK) return;
+    if (slowFrames > FRAMES_PER_CHECK / 2) {
+      pixelRatio = LOW_PIXEL_RATIO;
+      renderer.setPixelRatio(pixelRatio);
+      renderer.setSize(width, height, false);
+    }
+    checkedFrames = 0;
+    slowFrames = 0;
   }
 
   function frame(now: number): void {
@@ -306,6 +356,7 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
     const dt = Math.min(0.1, seconds - lastFrame);
     lastFrame = seconds;
     clock += dt;
+    watchFrameRate(dt);
     const isMoving = step(dt);
     if (isMoving || needsPool) {
       drawPools();
@@ -325,10 +376,18 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
     frameId = 0;
   }
 
+  function sendEmber(fromIndex: number, toIndex: number): void {
+    const from = candles[Math.max(0, fromIndex)].spot;
+    const to = candles[toIndex].spot;
+    emberFrom.set(from.x, from.height + 0.3, from.z);
+    emberTo.set(to.x, to.height + 0.3, to.z);
+    emberProgress = fromIndex < 0 ? 1 : 0;
+  }
 
   return {
     setLit(count) {
       const next = Math.max(0, Math.min(CANDLE_COUNT, Math.round(count)));
+      const previous = litCount;
       candles.forEach((candle, index) => {
         const target = index < next ? 1 : 0;
         if (target === 1 && candle.target === 0) {
@@ -337,6 +396,7 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
         }
         candle.target = target;
       });
+      if (next === previous + 1) sendEmber(previous - 1, previous);
       litCount = next;
       peakTarget = litCount === CANDLE_COUNT ? 1 : 0;
       needsPool = true;
@@ -349,7 +409,7 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
     resize(nextWidth, nextHeight) {
       width = Math.max(1, nextWidth);
       height = Math.max(1, nextHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+      renderer.setPixelRatio(pixelRatio);
       renderer.setSize(width, height, false);
       applyLayout();
       render();
@@ -357,15 +417,17 @@ export function createCandleScene(canvas: HTMLCanvasElement): CandleScene {
     dispose() {
       stop();
       isActive = false;
-      bodyGeometry.dispose();
-      capGeometry.dispose();
-      planeGeometry.dispose();
+      for (const geometry of [bodyGeometry, capGeometry, wickGeometry, planeGeometry, trayGeometry, rimGeometry]) geometry.dispose();
+      wickMaterial.dispose();
+      trayMaterial.dispose();
+      rimMaterial.dispose();
       for (const candle of candles) {
         candle.material.dispose();
         candle.capMaterial.dispose();
         (candle.flame.material as SpriteMaterial).dispose();
         (candle.glow.material as SpriteMaterial).dispose();
       }
+      (emberSprite.material as SpriteMaterial).dispose();
       poolMaterial.dispose();
       shadowMaterial.dispose();
       for (const texture of disposables) texture.dispose();

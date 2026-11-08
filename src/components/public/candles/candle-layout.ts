@@ -1,43 +1,32 @@
 export const CANDLE_COUNT = 18;
 
-/** World-space spot for one candle. Candle 0 is the first year and the shortest. */
+/** World-space spot for one candle. Candle 0 is the first year. */
 export interface CandleSpot {
   x: number;
   z: number;
   height: number;
 }
 
-const SPACING = 0.66;
-const ROW_DEPTH = 1.05;
-const MIN_HEIGHT = 0.8;
-const HEIGHT_RANGE = 1.25;
-const WIDE_ASPECT = 1.9;
-const SQUARE_ASPECT = 0.55;
+export const TRAY_RADIUS = 3.05;
+export const VIEW_ELEVATION = 0.36;
 
-/** Wide stages hold one row, squarer ones two, tall ones three. */
-export function candleRows(aspect: number): number {
-  if (aspect >= WIDE_ASPECT) return 1;
-  return aspect >= SQUARE_ASPECT ? 2 : 3;
-}
+const RING_RADIUS = 2.55;
+const RING_COUNT = CANDLE_COUNT - 1;
+const FIRST_HEIGHT = 0.8;
+const HEIGHT_RISE = 0.62;
+const LAST_HEIGHT = 2.05;
+
+/** Server and browser disagree in the last digits of sin and cos, which would break hydration. */
+export const settle = (value: number): number => Math.round(value * 1000) / 1000;
 
 /**
- * Candles climb in height from one to eighteen and run in rows from front to
- * back, so the eighteenth stands tallest at the back of the last row.
+ * Seventeen candles climb a spiral around the tray, one for each year, and the
+ * eighteenth stands tallest at the centre. The first stands nearest the guest.
  */
-export function layoutCandles(count: number, rows: number): CandleSpot[] {
-  const perRow = Math.ceil(count / rows);
-  const spots: CandleSpot[] = [];
-  for (let index = 0; index < count; index += 1) {
-    const row = Math.floor(index / perRow);
-    const column = index % perRow;
-    const rowStart = row * perRow;
-    const inRow = Math.min(perRow, count - rowStart);
-    const stagger = row % 2 === 1 ? SPACING / 2 : 0;
-    const unit = inRow > 1 ? (column / (inRow - 1)) * 2 - 1 : 0;
-    const x = (column - (inRow - 1) / 2) * SPACING + stagger - (rows > 1 ? SPACING / 4 : 0);
-    const z = -row * ROW_DEPTH + 0.28 * unit * unit;
-    const progress = index / (count - 1);
-    spots.push({ x, z, height: MIN_HEIGHT + HEIGHT_RANGE * progress });
-  }
-  return spots;
+export function layoutCandles(): CandleSpot[] {
+  const ring = Array.from({ length: RING_COUNT }, (_, index) => {
+    const angle = Math.PI / 2 - (index / RING_COUNT) * Math.PI * 2;
+    return { x: settle(Math.cos(angle) * RING_RADIUS), z: settle(Math.sin(angle) * RING_RADIUS), height: settle(FIRST_HEIGHT + HEIGHT_RISE * (index / (RING_COUNT - 1))) };
+  });
+  return [...ring, { x: 0, z: 0, height: LAST_HEIGHT }];
 }
