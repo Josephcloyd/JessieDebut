@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ivory: #fff9f4;
+  --color-beige: #ffd2d7;
+  --color-champagne: #e6c594;
+  --color-gold: #e6c594;
+  --color-taupe: #c58b95;
+  --color-umber: #4d2c32;
+  /* A lighter tint of Burgundy Rose. Dusty Rose is too pale for small text. */
+  --color-soft-ink: #6e4a51;
+  --color-dusk: #c58b95;
+  --color-dusk-light: #ffd2d7;
+  --color-fern: #4d2c32;
+
+  --font-display: var(--font-cormorant), "Times New Roman", serif;
+  --font-editorial: var(--font-playfair), Georgia, serif;
+  --font-sans: var(--font-manrope), system-ui, sans-serif;
+  --font-script: var(--font-pinyon), cursive;
+
+  --shadow-soft: 0 18px 50px -24px rgb(77 44 50 / 0.35);
+  --shadow-card: 0 8px 30px -18px rgb(77 44 50 / 0.3);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-ivory);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .27 0 0 0 0 .22 0 0 0 0 .18 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+    color: var(--color-umber);
+    font-family: var(--font-sans);
+    overflow-x: clip;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-umber);
+    outline-offset: 3px;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+@layer components {
+  .linen {
+    background-color: var(--color-beige);
+  }
+
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    display: inline-flex;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.8rem 1.9rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    position: relative;
+    overflow: hidden;
+    transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease, transform 0.35s ease;
+    cursor: pointer;
+  }
+
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .btn:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  .btn-solid {
+    background: var(--color-umber);
+    color: var(--color-ivory);
+  }
+
+  .btn-solid:not(:disabled):hover {
+    background: var(--color-gold);
+    color: var(--color-umber);
+  }
+
+  .btn-light {
+    border: 1px solid rgb(248 245 239 / 0.6);
+    color: var(--color-ivory);
+  }
+
+  .btn-light:not(:disabled):hover {
+    background: var(--color-ivory);
+    color: var(--color-umber);
+  }
+
+  .btn-line {
+    border: 1px solid var(--color-gold);
+    color: var(--color-umber);
+  }
+
+  .btn-line:not(:disabled):hover {
+    background: var(--color-gold);
+    border-color: var(--color-gold);
+    color: var(--color-umber);
+  }
+
+  .field {
+    width: 100%;
+    min-height: 3rem;
+    border: 1px solid var(--color-champagne);
+    background: rgb(255 255 255 / 0.65);
+    padding: 0.7rem 0.9rem;
+    font-size: 1rem;
+    color: var(--color-umber);
+    transition: border-color 0.25s ease;
+  }
+
+  .field:focus {
+    border-color: var(--color-umber);
+    outline: none;
+  }
+
+  .field[aria-invalid="true"] {
+    border-color: #9a3b2f;
+  }
+
+  /* Sized so a name of any length spans the width of the cover. */
+  .masthead {
+    font-size: min(calc(150vw / var(--letters)), 24vw);
+    letter-spacing: 0.01em;
+  }
+
+  @media (min-width: 48rem) {
+    .masthead {
+      font-size: min(calc(76vw / var(--letters)), 12vw);
+    }
+  }
+
+  .hairline-frame {
+    position: relative;
+  }
+
+  .hairline-frame::after {
+    position: absolute;
+    inset: 0.6rem;
+    border: 1px solid rgb(230 197 148 / 0.75);
+    content: "";
+    pointer-events: none;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
